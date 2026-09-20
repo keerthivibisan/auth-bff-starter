@@ -1,0 +1,17 @@
+{
+  "name": "react-keycloak-base",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Base template: React SPA + BFF, authenticated via Keycloak (OIDC Authorization Code + PKCE).",
+  "workspaces": ["bff", "frontend"],
+  "scripts": {
+    "dev": "concurrently -n bff,frontend -c blue,green \"npm run dev -w bff\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w frontend && npm run build -w bff",
+    "typecheck": "npm run typecheck -w bff && npm run typecheck -w frontend",
+    "keycloak:up": "docker compose up -d keycloak",
+    "keycloak:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
