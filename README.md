@@ -31,8 +31,7 @@ the client entirely.
 ```
 frontend/   Vite + React + TypeScript SPA (login/signup screen + authenticated screen)
 bff/        Express + TypeScript BFF (OIDC flow, session cookie, token refresh)
-keycloak/   Realm export used by docker-compose for local development
-docker-compose.yml   Spins up a local Keycloak with a ready-to-use realm
+docker-compose.yml   Local Keycloak with the realm inlined (ready-to-use)
 ```
 
 ## Prerequisites
@@ -55,7 +54,7 @@ docker-compose.yml   Spins up a local Keycloak with a ready-to-use realm
    npm run keycloak:up
    ```
 
-   This uses [`keycloak/realm-export.json`](keycloak/realm-export.json) to
+   This uses the realm inlined in [`docker-compose.yml`](docker-compose.yml) to
    create:
    - Realm: `app-realm`
    - Confidential client `app-bff` (PKCE required, redirect URI
