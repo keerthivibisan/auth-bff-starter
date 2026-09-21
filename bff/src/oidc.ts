@@ -6,27 +6,27 @@ let loginClient: Client | undefined;
 let signupClient: Client | undefined;
 
 /**
- * Runs OIDC discovery against Keycloak's well-known endpoint once at startup.
- * Keycloak's realm issuer URL doubles as the discovery document base
- * (`{issuer}/.well-known/openid-configuration`).
+ * Runs OIDC discovery against the provider's well-known endpoint once at
+ * startup (`{issuer}/.well-known/openid-configuration`). Works against any
+ * standards-compliant OIDC provider — Keycloak, Auth0, Okta, Azure AD, etc.
  */
 export async function initOidc(): Promise<void> {
-  issuer = await Issuer.discover(config.keycloak.issuerUrl);
+  issuer = await Issuer.discover(config.oidc.issuerUrl);
 
   loginClient = new issuer.Client({
-    client_id: config.keycloak.loginClientId,
-    client_secret: config.keycloak.loginClientSecret,
-    redirect_uris: [config.keycloak.redirectUri],
+    client_id: config.oidc.loginClientId,
+    client_secret: config.oidc.loginClientSecret,
+    redirect_uris: [config.oidc.redirectUri],
     response_types: ["code"],
   });
 
   signupClient =
-    config.keycloak.signupClientId === config.keycloak.loginClientId
+    config.oidc.signupClientId === config.oidc.loginClientId
       ? loginClient
       : new issuer.Client({
-          client_id: config.keycloak.signupClientId,
-          client_secret: config.keycloak.signupClientSecret,
-          redirect_uris: [config.keycloak.redirectUri],
+          client_id: config.oidc.signupClientId,
+          client_secret: config.oidc.signupClientSecret,
+          redirect_uris: [config.oidc.redirectUri],
           response_types: ["code"],
         });
 }
@@ -60,33 +60,47 @@ export function createPkceParams(): PkceParams {
 }
 
 /**
- * Builds the authorization URL for a given flow. Keycloak has no distinct
- * OIDC "signup" grant, so the well-known convention is to point the browser
- * at Keycloak's registration endpoint (same params as the authorize
- * endpoint) instead of the login endpoint. See README for the
- * kc_action-based alternative if your Keycloak version prefers that.
+ * Builds the authorization URL for a given flow. See config.ts for the
+ * three supported OIDC_SIGNUP_MODE strategies — providers have no common
+ * standard for "go straight to registration", so this is pluggable.
  */
-export function buildAuthorizationUrl(
-  flow: "login" | "signup",
-  pkce: PkceParams
-): string {
+export function buildAuthorizationUrl(flow: "login" | "signup", pkce: PkceParams): string {
   const client = getClient(flow);
-  const url = client.authorizationUrl({
-    scope: config.keycloak.scopes,
-    redirect_uri: config.keycloak.redirectUri,
+  const params: Record<string, unknown> = {
+    scope: config.oidc.scopes,
+    redirect_uri: config.oidc.redirectUri,
     code_challenge: pkce.codeChallenge,
     code_challenge_method: "S256",
     state: pkce.state,
     nonce: pkce.nonce,
-  });
+  };
 
-  if (flow === "signup") {
-    return url.replace(
-      "/protocol/openid-connect/auth",
-      "/protocol/openid-connect/registrations"
-    );
+  const isSignup = flow === "signup";
+  if (isSignup && config.oidc.signupMode === "param" && config.oidc.signupParam) {
+    const separatorIndex = config.oidc.signupParam.indexOf("=");
+    if (separatorIndex > 0) {
+      const key = config.oidc.signupParam.slice(0, separatorIndex);
+      const value = config.oidc.signupParam.slice(separatorIndex + 1);
+      params[key] = value;
+    }
   }
-  return url;
+
+  const url = client.authorizationUrl(params);
+
+  if (!isSignup || config.oidc.signupMode !== "endpoint") {
+    return url;
+  }
+
+  const authorizationEndpoint = getIssuer().metadata.authorization_endpoint;
+  if (!authorizationEndpoint || !url.startsWith(authorizationEndpoint)) {
+    return url;
+  }
+
+  const signupEndpoint =
+    config.oidc.signupAuthorizationEndpoint ??
+    authorizationEndpoint.replace(/\/[^/]+$/, `/${config.oidc.signupEndpointSegment}`);
+
+  return signupEndpoint + url.slice(authorizationEndpoint.length);
 }
 
 export async function exchangeCodeForTokens(
@@ -96,7 +110,7 @@ export async function exchangeCodeForTokens(
 ): Promise<TokenSet> {
   const client = getClient(flow);
   const params = client.callbackParams(callbackUrl);
-  return client.callback(config.keycloak.redirectUri, params, {
+  return client.callback(config.oidc.redirectUri, params, {
     code_verifier: pkce.codeVerifier,
     state: pkce.state,
     nonce: pkce.nonce,
@@ -114,6 +128,6 @@ export function buildEndSessionUrl(idToken: string | undefined): string {
   const client = getClient("login");
   return client.endSessionUrl({
     id_token_hint: idToken,
-    post_logout_redirect_uri: config.keycloak.postLogoutRedirectUri,
+    post_logout_redirect_uri: config.oidc.postLogoutRedirectUri,
   });
 }

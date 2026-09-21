@@ -22,6 +22,8 @@ function optionalBool(name: string, fallback: boolean): boolean {
 const nodeEnv = optional("NODE_ENV", "development");
 const isProduction = nodeEnv === "production";
 
+export type SignupMode = "endpoint" | "param" | "same-as-login";
+
 export const config = {
   nodeEnv,
   isProduction,
@@ -42,28 +44,53 @@ export const config = {
     cookieSameSite: optional("COOKIE_SAMESITE", "lax") as "lax" | "strict" | "none",
   },
 
-  keycloak: {
-    issuerUrl: required("KEYCLOAK_ISSUER_URL"),
-    scopes: optional("KEYCLOAK_SCOPES", "openid profile email"),
+  // Any standards-compliant OIDC provider works here (Keycloak, Auth0,
+  // Okta, Azure AD / Entra ID, Google, ...) — this template only assumes
+  // discovery (`{issuer}/.well-known/openid-configuration`), Authorization
+  // Code + PKCE, and a refresh token grant, all of which are OIDC-standard.
+  oidc: {
+    issuerUrl: required("OIDC_ISSUER_URL"),
+    scopes: optional("OIDC_SCOPES", "openid profile email"),
 
-    loginClientId: required("KEYCLOAK_LOGIN_CLIENT_ID"),
-    loginClientSecret: required("KEYCLOAK_LOGIN_CLIENT_SECRET"),
+    loginClientId: required("OIDC_LOGIN_CLIENT_ID"),
+    loginClientSecret: required("OIDC_LOGIN_CLIENT_SECRET"),
 
     // The signup ("registration") flow may reuse the login client, or point
     // at a dedicated client configured with its own flows/branding.
-    signupClientId: optional("KEYCLOAK_SIGNUP_CLIENT_ID", required("KEYCLOAK_LOGIN_CLIENT_ID")),
+    signupClientId: optional("OIDC_SIGNUP_CLIENT_ID", required("OIDC_LOGIN_CLIENT_ID")),
     signupClientSecret: optional(
-      "KEYCLOAK_SIGNUP_CLIENT_SECRET",
-      required("KEYCLOAK_LOGIN_CLIENT_SECRET")
+      "OIDC_SIGNUP_CLIENT_SECRET",
+      required("OIDC_LOGIN_CLIENT_SECRET")
     ),
 
     redirectUri: optional(
-      "KEYCLOAK_REDIRECT_URI",
+      "OIDC_REDIRECT_URI",
       `${required("BFF_BASE_URL", "http://localhost:3001")}/api/auth/callback`
     ),
     postLogoutRedirectUri: optional(
-      "KEYCLOAK_POST_LOGOUT_REDIRECT_URI",
+      "OIDC_POST_LOGOUT_REDIRECT_URI",
       required("APP_BASE_URL", "http://localhost:5173")
     ),
+
+    // How the Signup button reaches a different screen than Login at the
+    // provider. Providers vary widely here, so this is pluggable — see
+    // README "Pointing at a different OIDC provider" for examples.
+    //   endpoint       (default) Keycloak-style: use a distinct
+    //                  authorization endpoint for signup. Either set
+    //                  OIDC_SIGNUP_AUTHORIZATION_ENDPOINT explicitly, or
+    //                  let it default to swapping the last path segment of
+    //                  the discovered authorization endpoint for
+    //                  OIDC_SIGNUP_ENDPOINT_SEGMENT (Keycloak's own
+    //                  convention: .../auth -> .../registrations).
+    //   param          Auth0-style: append OIDC_SIGNUP_PARAM ("key=value",
+    //                  e.g. "screen_hint=signup") to the normal
+    //                  authorization URL.
+    //   same-as-login  No special handling — the Signup button behaves
+    //                  exactly like Login. Use this when your provider has
+    //                  no redirect-based self-registration.
+    signupMode: optional("OIDC_SIGNUP_MODE", "endpoint") as SignupMode,
+    signupAuthorizationEndpoint: process.env.OIDC_SIGNUP_AUTHORIZATION_ENDPOINT,
+    signupEndpointSegment: optional("OIDC_SIGNUP_ENDPOINT_SEGMENT", "registrations"),
+    signupParam: process.env.OIDC_SIGNUP_PARAM,
   },
 };

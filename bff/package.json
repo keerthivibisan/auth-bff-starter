@@ -2,7 +2,7 @@
   "name": "bff",
   "version": "0.1.0",
   "private": true,
-  "description": "Backend-for-Frontend: handles the Keycloak OIDC Authorization Code + PKCE flow and issues an HttpOnly session cookie to the SPA.",
+  "description": "Backend-for-Frontend: handles the OIDC Authorization Code + PKCE flow with any provider and issues an HttpOnly session cookie to the SPA.",
   "type": "commonjs",
   "engines": {
     "node": ">=18"

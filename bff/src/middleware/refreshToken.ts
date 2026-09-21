@@ -38,7 +38,7 @@ export async function ensureFreshTokens(req: Request): Promise<boolean> {
     };
     return true;
   } catch {
-    // Refresh token expired, revoked, or Keycloak unreachable.
+    // Refresh token expired, revoked, or the OIDC provider unreachable.
     delete req.session.tokens;
     return false;
   }

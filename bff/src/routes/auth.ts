@@ -39,7 +39,7 @@ function startAuthFlow(flow: "login" | "signup") {
         const url = buildAuthorizationUrl(flow, pkce);
         res.redirect(url);
       } catch {
-        res.redirect(`${config.appBaseUrl}/?error=keycloak_unreachable`);
+        res.redirect(`${config.appBaseUrl}/?error=idp_unreachable`);
       }
     });
   };
@@ -64,7 +64,7 @@ authRouter.get("/callback", async (req, res) => {
   }
 
   try {
-    const callbackUrl = `${config.keycloak.redirectUri}?${new URLSearchParams(
+    const callbackUrl = `${config.oidc.redirectUri}?${new URLSearchParams(
       req.query as Record<string, string>
     ).toString()}`;
 
@@ -127,8 +127,8 @@ authRouter.post("/logout", (req, res) => {
     try {
       res.json({ logoutUrl: buildEndSessionUrl(idToken) });
     } catch {
-      // Keycloak unreachable: the local session is already cleared, so send
-      // the SPA home rather than failing the logout outright.
+      // Provider unreachable: the local session is already cleared, so
+      // send the SPA home rather than failing the logout outright.
       res.json({ logoutUrl: config.appBaseUrl });
     }
   });
