@@ -1,0 +1,57 @@
+# Local dev Keycloak only. Not for production (dev mode, default admin creds).
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    configs:
+      - source: realm
+        target: /opt/keycloak/data/import/realm-export.json
+
+# Realm imported on first start: confidential client + PKCE, one test user.
+configs:
+  realm:
+    content: |
+      {
+        "realm": "app-realm",
+        "enabled": true,
+        "registrationAllowed": true,
+        "loginWithEmailAllowed": true,
+        "sslRequired": "none",
+        "clients": [
+          {
+            "clientId": "app-bff",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "secret": "change-me",
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "redirectUris": ["http://localhost:3001/api/auth/callback"],
+            "webOrigins": ["http://localhost:5173"],
+            "attributes": {
+              "pkce.code.challenge.method": "S256",
+              "post.logout.redirect.uris": "http://localhost:5173"
+            }
+          }
+        ],
+        "users": [
+          {
+            "username": "testuser",
+            "enabled": true,
+            "emailVerified": true,
+            "email": "testuser@example.com",
+            "firstName": "Test",
+            "lastName": "User",
+            "credentials": [
+              { "type": "password", "value": "testpassword", "temporary": false }
+            ]
+          }
+        ]
+      }
